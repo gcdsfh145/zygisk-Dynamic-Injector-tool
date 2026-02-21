@@ -1,1 +1,13 @@
-name=adbd companion lib/lib${moduleId}.so
+# Zygisk Injector - 注入目标配置文件
+# 格式: 包名:SO路径:入口函数
+# 每行一个目标，# 开头为注释
+
+# 示例配置 (取消注释并修改以使用):
+# com.example.game:/data/local/tmp/libhack.so:JNI_OnLoad
+# com.tencent.tmgp.sgame:/data/local/tmp/libgamehack.so:JNI_OnLoad
+# com.miHoYo.GenshinImpact:/data/local/tmp/libgenshin.so:onLoad
+
+# 注意:
+# 1. SO路径必须是目标进程可访问的路径
+# 2. 入口函数默认为 JNI_OnLoad
+# 3. 修改此文件后需要重启手机或重新加载模块

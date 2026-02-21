@@ -1,7 +1,11 @@
-id=${moduleId}
-name=${moduleName}
+id=zygisk-injector
+name=Zygisk Injector
 version=${versionName}
 versionCode=${versionCode}
 author=5ec1cff
-description=Zygisk Next Module sample
+description=Zygisk Next模块 - SO注入器，支持通过Kotlin App控制注入目标应用
 #updateJson=
+
+# 模块配置
+#zn_modules.txt - 注入目标列表 (格式: 包名:SO路径:入口函数)
+# 默认注入列表: /data/local/tmp/zn_inject_targets.txt

@@ -51,7 +51,7 @@ fi
 . "$TMPDIR/verify.sh"
 extract "$ZIPFILE" 'customize.sh'  "$TMPDIR/.vunzip"
 extract "$ZIPFILE" 'verify.sh'     "$TMPDIR/.vunzip"
-extract "$ZIPFILE" 'sepolicy.rule' "$TMPDIR"
+extract "$ZIPFILE" 'sepolicy.rule' "$MODPATH"
 
 ui_print "- Extracting module files"
 extract "$ZIPFILE" 'module.prop'     "$MODPATH"
@@ -64,3 +64,26 @@ mkdir "$MODPATH/lib"
 
 ui_print "- Extracting $ARCH libraries"
 extract "$ZIPFILE" "lib/$ARCH/lib$SONAME.so" "$MODPATH/lib" true
+
+# 创建默认注入目标配置文件
+ui_print "- Setting up injection targets"
+INJECT_TARGETS_FILE="/data/local/tmp/zn_inject_targets.txt"
+if [ ! -f "$INJECT_TARGETS_FILE" ]; then
+  # 如果模块目录有默认配置，使用它
+  if [ -f "$MODPATH/zn_modules.txt" ]; then
+    cp "$MODPATH/zn_modules.txt" "$INJECT_TARGETS_FILE"
+    ui_print "- Copied default inject targets"
+  else
+    # 创建空配置文件
+    echo "# Zygisk Injector - 注入目标配置" > "$INJECT_TARGETS_FILE"
+    echo "# 格式: 包名:SO路径:入口函数" >> "$INJECT_TARGETS_FILE"
+    echo "# 示例: com.example.game:/data/local/tmp/libhack.so:JNI_OnLoad" >> "$INJECT_TARGETS_FILE"
+    ui_print "- Created empty inject targets file"
+  fi
+  chmod 666 "$INJECT_TARGETS_FILE"
+fi
+
+ui_print ""
+ui_print "- Installation complete!"
+ui_print "- Edit $INJECT_TARGETS_FILE to configure injection targets"
+ui_print ""

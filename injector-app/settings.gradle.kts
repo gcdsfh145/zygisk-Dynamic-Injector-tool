@@ -14,8 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ZnModuleSample"
-include(
-    ":module",
-    ":injector-app"
-)
+rootProject.name = "InjectorApp"
+include(":injector-app")
