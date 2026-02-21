@@ -1,120 +1,136 @@
-# Zygisk Next Module Sample
+# Zygisk Injector
 
-[中文](#中文版本) [English](#english-version)
+**Zygisk Injector** 是一款基于 Magisk Zygisk 技术的 Android 动态 SO 注入工具。它允许用户通过 Kotlin 编写的管理界面，在应用启动阶段将自定义的共享库（.so）注入到目标游戏或应用进程中。
 
-## 中文版本
+## 核心特性
 
-本仓库包含一个可构建的 Zygisk Next 模块示例项目。
+- **Zygisk 级注入**：利用 Zygisk API，在应用进程初始化前完成注入
+- **隐藏式加载**：通过 Zygisk 内部机制调用 `dlopen`
+- **Kotlin 管理端**：提供现代化的 UI 界面，管理目标应用列表和 SO 文件路径
+- **动态配置**：通过配置文件实现 APK 与 Zygisk 模块的通信
+- **高兼容性**：支持 Android 9.0+ 及 Magisk Zygisk 环境
 
-运行 gradle task `zipDebug` 生成 debug 版本的 zip 或运行 `installMagisk|KsuDebug` 以安装模块。构建完成的模块 zip 包将输出到 module/release 目录下。
+## 项目架构
 
-### 模块声明
+项目由三个核心部分组成：
 
-一个 Zygisk Next 模块是一个合法的 [Magisk 模块](https://topjohnwu.github.io/Magisk/guides.html#magisk-modules)，
-且具有 Zygisk Next 特有的声明文件，该文件必须被放置在 `$MODDIR/zn_modules.txt` 文件中， 其中 `$MODDIR` 是模块目录。
+1. **Manager APK (Kotlin)** - `injector-app/`
+   - 负责用户交互，选择目标包名
+   - 管理待注入的 `.so` 文件
+   - 将配置写入 `/data/adb/zygisk/injector_targets.txt`
 
-文件的每一行是一个 Zygisk Next 模块库和作用域声明，如下所示：
+2. **Zygisk Module (C++)** - `module/`
+   - 驻留在 Zygote 进程中
+   - 读取配置文件进行 SO 注入
+   - 使用 ptrace + dlopen 机制
 
-```txt
-path=/path/of/program/to/inject path/to/znmodule_lib.so
-name=name_of_program_to_inject path/to/znmodule_lib.so
+3. **Injected SO** - 用户自定义
+   - 实际执行 Hook 或功能修改的逻辑库
+   - 通过 JNI 与管理 APK 通信
+
+## 通信机制
+
+采用**配置文件轮询**的方式：
+
+1. **APK 端**：用户点击"注入 SO"时，将配置写入 `/data/adb/zygisk/injector_targets.txt`
+   ```
+   包名:SO路径:初始化函数名
+   ```
+
+2. **模块端**：Zygisk 模块在应用启动时读取配置文件，匹配包名后执行注入
+
+## 快速开始
+
+### 环境要求
+
+- 已 Root 的 Android 设备
+- 已安装 Magisk v24.0+ 并开启 **Zygisk** 选项
+- Android NDK (用于编译 C++ 部分)
+
+### 安装步骤
+
+1. **编译模块**
+   ```bash
+   ./gradlew zipDebug
+   ```
+   生成的模块 zip 包在 `module/release/` 目录
+
+2. **安装模块**
+   - 在 Magisk 中安装生成的 zip 文件
+   - 重启设备
+
+3. **安装 APK**
+   - 安装 `injector-app/build/outputs/apk/release/injector-app-release.apk`
+   - 打开应用
+
+4. **配置注入**
+   - 输入目标包名（如 `com.example.game`）
+   - 输入 SO 路径（如 `/data/data/com.example.game/lib/libtool.so`）
+   - 点击"注入 SO"
+   - 重启目标应用
+
+## 配置文件格式
+
+注入目标配置文件：`/data/adb/zygisk/injector_targets.txt`
+
+格式：
+```
+包名:SO路径:初始化函数名
 ```
 
-其中，path 表示使用绝对路径的匹配方式，即绝对路径为给定值的程序将被注入；
-name 表示名字匹配，即名字为给定值的程序将被注入。
-
-被注入的程序会被加载由路径 path/to/znmodule_lib.so 指向的动态链接库。如果动态库的路径是一个相对路径，则会被相对模块目录寻找，如果该路径是一个绝对路径，
-则根据绝对路径寻找，无论是相对路径还是绝对路径，动态库的最终路径必须是自身模块目录下的文件，否则动态库不会被加载。
-
-例如，如果需要注入模块目录下的 libmodule.so 到 adbd 进程中，则使用程序名字匹配的方式可以写作：
-
+示例：
 ```
-name=adbd libmodule.so
+com.example.game:/data/data/com.example.game/lib/libtool.so:onLoad
 ```
 
-或者使用绝对路径匹配方式，其中 adbd 绝对路径为 `/apex/com.android.adbd/bin/adbd` ：
+## 开发计划
+
+- [ ] 支持多 SO 同时注入
+- [ ] 集成 Native Hook 模板
+- [ ] 增加注入状态的实时日志
+- [ ] 优化反作弊检测兼容性
+
+## 项目结构
 
 ```
-path=/apex/com.android.adbd/bin/adbd libmodule.so
+zygisk-Dynamic-Injector-tool/
+├── injector-app/           # Kotlin 管理 APK
+│   ├── src/main/
+│   │   ├── java/com/injector/app/
+│   │   │   └── MainActivity.kt
+│   │   ├── res/layout/
+│   │   │   └── activity_main.xml
+│   │   └── AndroidManifest.xml
+│   └── build.gradle.kts
+│
+├── module/                 # Zygisk 模块
+│   ├── src/main/
+│   │   ├── cpp/
+│   │   │   ├── zygisk_injector.cpp
+│   │   │   ├── injector_core.cpp
+│   │   │   └── libhack.cpp
+│   │   ├── res/
+│   │   └── AndroidManifest.xml
+│   ├── template/           # Magisk 模块模板
+│   │   ├── module.prop
+│   │   ├── customize.sh
+│   │   └── zn_modules.txt
+│   └── build.gradle.kts
+│
+└── build.gradle.kts        # 根构建文件
 ```
 
-### 模块作用范围
+## 编译命令
 
-目前，Zygisk Next 模块可注入到满足以下要求的进程中： 
+```bash
+# 编译 Zygisk 模块
+./gradlew zipDebug        # Debug 版本
+./gradlew zipRelease      # Release 版本
 
-- 由 init 进程产生(fork-execve)的服务进程。
-- 程序是 ELF 格式的动态链接的可执行程序（即，不是 shell 脚本或静态链接程序）。  
-- 启动晚于 post-fs-data 阶段（早于该阶段启动的无法被 Zygisk Next 拦截）。  
-- 不是 zygote 。  
-
-可以使用 `zygisk-ctl dump-zn -sa` 命令观察 Zygisk Next 所知道的服务进程，这些服务进程一般可以注入。  
-
-### 模块 API （草案）
-
-Zygisk Next 模块 API 目前仍在设计当中，具体内容请参见 [zygisk_next_api.h](module/src/main/cpp/zygisk_next_api.h) 。
-
-当前 API 版本为 1 ，提供 plt hook 和 inline hook 能力。
-
-请注意：
-
-- 如需使用 inline hook ，请确保目标进程的 SELinux 域拥有 execmem 权限。可以借助 sepolicy.rule 来允许该权限。  
-- 在目前的实现中，每个进程对一个地址的 inline hook 只能进行一次，因此多个模块可能无法 inline hook 同一个地址。  
-
-由于模块 API 仍处于草案阶段，在未来可能发生变化。我们期待模块开发者提出 API 的改进建议。
-
-## English version
-
-This repository contains a buildable example project for Zygisk Next modules.
-
-Run the Gradle task `zipDebug` to generate a debug version of the zip file, or run `installMagisk|KsuDebug` to install the module. The built module zip package will be output to the module/release directory.
-
-### Module Declaration
-
-A Zygisk Next module is a valid [Magisk module](https://topjohnwu.github.io/Magisk/guides.html#magisk-modules) with a specific declaration file for Zygisk Next. This file must be placed in the `$MODDIR/zn_modules.txt` file, where `$MODDIR` represents the module directory.
-
-Each line in the file represents a Zygisk Next module library and scope declaration, as shown below:
-
-```txt
-path=/path/of/program/to/inject path/to/znmodule_lib.so
-name=name_of_program_to_inject path/to/znmodule_lib.so
+# 编译管理 APK
+./gradlew :injector-app:assembleRelease
 ```
 
-Here, `path` represents matching by absolute path, meaning programs with the given absolute path will be injected, and `name` represents name matching, indicating programs with the given name will be injected.
+## 免责声明
 
-The injected program will load the dynamic link library pointed to by the path `path/to/znmodule_lib.so`. If the path to the dynamic library is a relative path, it will be searched relative to the module directory. If the path is an absolute path, it will be searched according to the absolute path. In either case, the dynamic library must ultimately reside in the module directory for it to be loaded.
-
-For example, if you need to inject the `libmodule.so` from the module directory into the `adbd` process, you can use name matching as follows:
-
-```
-name=adbd libmodule.so
-```
-
-Or you can use absolute path matching, where the absolute path for `adbd` is `/apex/com.android.adbd/bin/adbd`:
-
-```
-path=/apex/com.android.adbd/bin/adbd libmodule.so
-```
-
-### Module Scope
-
-Currently, Zygisk Next modules can be injected into processes that meet the following criteria:
-
-- Services processes generated by the init process (fork-execve).
-- Programs that are ELF format dynamically linked executables (i.e., not shell scripts or statically linked programs).
-- Started later than the post-fs-data stage (programs started before this stage cannot be intercepted by Zygisk Next).
-- Not zygote.
-
-You can use the command `zygisk-ctl dump-zn -sa` to observe the service processes known to Zygisk Next that can generally be injected.
-
-### Module API (Draft)
-
-The Zygisk Next module API is still under design. For specific details, please refer to [zygisk_next_api.h](module/src/main/cpp/zygisk_next_api.h).
-
-The current API version is 1, providing the ability for PLT hook and inline hook.
-
-Please note:
-
-- If you intend to use inline hook, ensure that the target process's SELinux domain has `execmem` permission. You can use `sepolicy.rule` to allow this permission.
-- In the current implementation, each process can only perform an inline hook once on an address, so multiple modules may not be able to inline hook the same address.
-
-As the module API is still in the draft stage, it may undergo changes in the future. We welcome suggestions from module developers for improving the API.
+本工具仅用于技术研究与学习。请勿将其用于任何违反法律法规或目标应用服务协议的行为。开发者不对因使用本工具导致的任何账号封禁、数据丢失或法律责任负责。
