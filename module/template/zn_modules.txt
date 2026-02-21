@@ -1,0 +1,1 @@
+name=adbd companion lib/lib${moduleId}.so
